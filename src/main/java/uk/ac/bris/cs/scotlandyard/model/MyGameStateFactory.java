@@ -25,19 +25,56 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 	private final class MyGameState implements GameState {
 
-		@Nonnull @Override public GameSetup getSetup() { return setup; }
-		@Override public ImmutableSet<Piece> getPlayers() { return remaining; }
-		@Override public GameState advance(Move move) { return null; }
+		@Nonnull @Override public GameSetup getSetup() { 
+			return setup; 
+		}
+
+		@Override public ImmutableSet<Piece> getPlayers() { 
+			return remaining; 
+		}
+		
+		@Override public GameState advance(Move move) { 
+			return null; 
+		}
+
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {
             for (Player player : detectives) {
-				if (player.isDetective() && player.piece().equals(detective)) { return Optional.of(player.location()); }
+				if (
+					player.isDetective() && 
+					player.piece().equals(detective)
+				) { 
+					return Optional.of(player.location()); 
+				}
+			}
+
+			return Optional.empty();
+		}
+		@Override public Optional<TicketBoard> getPlayerTickets(Piece piece) { 
+			// from ImmutableBoard.java : 79
+			if (piece.isDetective()) {
+				return detectives.stream()
+						.filter(detective -> detective.piece().equals(piece))
+						.map(Player::tickets)
+						.findFirst()
+						.map(tickets -> ticket -> tickets.getOrDefault(ticket, 0));
+			} else if (piece.equals(mrX.piece())) {
+				return Optional.of(mrX.tickets())
+						.map(tickets -> ticket -> tickets.getOrDefault(ticket, 0));
 			}
 			return Optional.empty();
 		}
-		@Override public Optional<TicketBoard> getPlayerTickets(Piece piece) { return Optional.empty(); }
-		@Override public ImmutableList<LogEntry> getMrXTravelLog() { return log; }
-		@Override public ImmutableSet<Piece> getWinner() { return null; }
-		@Override public ImmutableSet<Move> getAvailableMoves() { return moves; }
+
+		@Override public ImmutableList<LogEntry> getMrXTravelLog() { 
+			return log; 
+		}
+		
+		@Override public ImmutableSet<Piece> getWinner() { 
+			return null; 
+		}
+
+		@Override public ImmutableSet<Move> getAvailableMoves() { 
+			return moves; 
+		}
 
 		private GameSetup setup;
 		private ImmutableSet<Piece> remaining;
@@ -47,39 +84,48 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		private ImmutableSet<Move> moves; // currently available moves
 		private ImmutableSet<Piece> winner;
 
-		private MyGameState(final GameSetup setup, final ImmutableSet<Piece> remaining,
-							final ImmutableList<LogEntry> log, final Player mrX, final List<Player> detectives) {
-
-			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves cannot be empty");
-			if(setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph cannot be empty");
-			this.setup = setup;
-
-
-			this.remaining = remaining;
-			this.log = log;
-
-			if(mrX == null) throw new NullPointerException("MrX cannot be null");
-
+		private MyGameState(
+			final GameSetup setup, 
+			final ImmutableSet<Piece> remaining,
+			final ImmutableList<LogEntry> log, 
+			final Player mrX, 
+			final List<Player> detectives
+		) {
+			if (setup.moves.isEmpty()) throw new IllegalArgumentException("Moves cannot be empty");
+			if (setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph cannot be empty");
+			if (mrX == null) throw new NullPointerException("MrX cannot be null");
+			if (detectives.contains(null)) throw new NullPointerException("Detectives cannot contain null");
+			
 			for (Player player : detectives) {
 				if (player.piece().isMrX()) { throw new IllegalArgumentException("There must only be one MrX"); }
 			}
-			this.mrX = mrX;
-
-            if(detectives.contains(null)) throw new NullPointerException("Detectives cannot contain null");
-
+			
 			List<Piece> pieces = new ArrayList<>(Collections.emptyList());
 			List<Integer> locations = new ArrayList<>(Collections.emptyList());
 
 			for (Player player : detectives) {
-				if(pieces.contains(player.piece())) {throw new IllegalArgumentException("Detectives cannot have duplicate pieces"); }
-				else { pieces.add(player.piece()); }
-				if(locations.contains(player.location())) {throw new IllegalArgumentException("Multiple detectives cannot be at the same location"); }
-				else { locations.add(player.location()); }
-				if(player.has(Ticket.SECRET)) {throw new IllegalArgumentException("Detectives cannot have secret tickets"); }
+				if (pieces.contains(player.piece())) {
+					throw new IllegalArgumentException("Detectives cannot have duplicate pieces"); 
+				} else { 
+					pieces.add(player.piece()); 
+				}
+				
+				if (locations.contains(player.location())) {
+					throw new IllegalArgumentException("Multiple detectives cannot be at the same location");
+				} else { 
+					locations.add(player.location()); 
+				}
+				
+				if (player.has(Ticket.SECRET)) {
+					throw new IllegalArgumentException("Detectives cannot have secret tickets"); 
+				}
 			}
-
-			this.detectives = detectives;
-
+			
+			this.setup = setup;
+			this.remaining = remaining;
+			this.log = log;
+			this.mrX = mrX;
+			this.detectives = detectives;		
 		}
 
 	}
