@@ -103,7 +103,6 @@ public class GameStateCreationTest extends ParameterisedModelTestBase {
 				new Player(BLUE, makeTickets(1, 1, 1, 1, 0), 2));
 	}
 
-
 	@Test(expected = IllegalArgumentException.class)
 	public void testEmptyMovesShouldThrow() {
 		gameStateFactory.build(
