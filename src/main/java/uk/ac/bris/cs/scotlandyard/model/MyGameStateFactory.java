@@ -1,14 +1,26 @@
 package uk.ac.bris.cs.scotlandyard.model;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import javax.annotation.Nonnull;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
 import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
-import uk.ac.bris.cs.scotlandyard.model.Move.*;
-import uk.ac.bris.cs.scotlandyard.model.Piece.*;
-import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.*;
+import uk.ac.bris.cs.scotlandyard.model.Move.DoubleMove;
+import uk.ac.bris.cs.scotlandyard.model.Move.FunctionalVisitor;
+import uk.ac.bris.cs.scotlandyard.model.Move.SingleMove;
+import uk.ac.bris.cs.scotlandyard.model.Piece.Detective;
+import uk.ac.bris.cs.scotlandyard.model.Piece.MrX;
+import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
+import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket;
+import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Transport;
 
 
 /**
@@ -100,15 +112,57 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		}
 		
 		@Override public GameState advance(Move move) { 
-			/*move.commencedBy()
-			move.tickets()
-			 
-			*/
-			if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
+			if (!getAvailableMoves().contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
+			
+			List<LogEntry> new_log = new ArrayList<>(log);
+			Set<Piece> new_remaining = new HashSet<>(remaining);
 
-	
+			if (move.commencedBy().isMrX()) {
+				FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
+					m -> {
+						return m.destination;
+					}, 
+					m -> {
+						return m.destination2;
+					}
+				);
+				int destination = move.accept(v);
+				mrX = mrX.at(destination);
 
-			return null; 
+				for (Ticket ticket : move.tickets()) {
+					if (setup.moves.get(log.size())) {
+						new_log.add(LogEntry.reveal(ticket, destination));
+					} else {
+						new_log.add(LogEntry.hidden(ticket));
+					}
+
+				}
+				mrX = mrX.use(move.tickets());
+				// swap to det turn?
+			} else {
+				for (Player det : detectives) {
+					if (det.piece() == move.commencedBy()) {
+						for (Ticket ticket : move.tickets()) {
+							det = det.use(ticket);
+							mrX.give(ticket);
+						}
+						
+						FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
+							m -> {
+								return m.destination;
+							}, 
+							m -> {
+								return m.destination2;
+							}
+							);
+							
+							det = det.at(move.accept(v));
+						}
+					}
+				}
+			new_remaining.remove(move.commencedBy());
+				
+			return new MyGameState(setup, ImmutableSet.copyOf(new_remaining), ImmutableList.copyOf(new_log), mrX, detectives); 
 		}
 
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {
@@ -150,18 +204,24 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public ImmutableSet<Move> getAvailableMoves() {
 			HashSet<Move> allMoves = new HashSet<>();
 
-			allMoves.addAll(makeSingleMoves(setup, detectives, mrX, mrX.location()));
-			allMoves.addAll(makeDoubleMoves(setup, detectives, mrX, mrX.location()));
+			///
+			///  toggle the comments below to pass all MrX when commmented or all bar 1 detectives when uncommented
+			/// 
+			
+			// if (remaining.contains(mrX.piece())) {
+				allMoves.addAll(makeSingleMoves(setup, detectives, mrX));
+				allMoves.addAll(makeDoubleMoves(setup, detectives, mrX));
+			// }
 
 			// for (Player player : detectives) {
-			// 	allMoves.addAll(makeSingleMoves(setup, detectives, player, player.location()));
+			// 	allMoves.addAll(makeSingleMoves(setup, detectives, player));
 			// }
 
 			return ImmutableSet.copyOf(allMoves);
-
 		}
 
-		private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
+		private static Set<SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player){
+			int source = player.location();
 			HashSet<SingleMove> moves = new HashSet<>();
 			destination_loop:
 			for (int destination : setup.graph.adjacentNodes(source)) {
@@ -185,10 +245,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
             return moves;
         }
 
-		private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player mrX, int source){
+		private static Set<DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player mrX){
 			if (mrX.isDetective()) {
 				throw new IllegalArgumentException("Player is detective");
 			}
+			int source = mrX.location();
 
 			HashSet<DoubleMove> doubleMoves = new HashSet<>();
 			if (!mrX.has(Ticket.DOUBLE) || setup.moves.size() <= 1) {
