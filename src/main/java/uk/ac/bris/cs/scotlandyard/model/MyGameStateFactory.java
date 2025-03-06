@@ -110,59 +110,64 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			players.add(mrX.piece());
 			return players.build();
 		}
-		
-		@Override public GameState advance(Move move) { 
+
+		@Override public GameState advance(Move move) {
 			if (!getAvailableMoves().contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
-			
+
 			List<LogEntry> new_log = new ArrayList<>(log);
 			Set<Piece> new_remaining = new HashSet<>(remaining);
 
-			if (move.commencedBy().isMrX()) {
-				FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
+			List<Player> new_detectives = new ArrayList<>();
+
+			FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
 					m -> {
 						return m.destination;
-					}, 
+					},
 					m -> {
 						return m.destination2;
 					}
-				);
-				int destination = move.accept(v);
-				mrX = mrX.at(destination);
+			);
 
-				for (Ticket ticket : move.tickets()) {
-					if (setup.moves.get(log.size())) {
-						new_log.add(LogEntry.reveal(ticket, destination));
-					} else {
-						new_log.add(LogEntry.hidden(ticket));
+			if (move.commencedBy().isMrX()) {
+				if (log.size() < setup.moves.size()) {
+					int destination = move.accept(v);
+					mrX = mrX.at(destination);
+
+					for (Ticket ticket : move.tickets()) {
+						if (mrX.has(ticket)) {
+							if (ticket == Ticket.SECRET) {
+								new_log.add(LogEntry.hidden(ticket));
+							}
+							else {
+								new_log.add(LogEntry.reveal(ticket, destination));
+							}
+							break;
+						}
 					}
-
+					mrX = mrX.use(move.tickets());
 				}
-				mrX = mrX.use(move.tickets());
+				// else game end
+
 				// swap to det turn?
-			} else {
+			}
+			else {
 				for (Player det : detectives) {
 					if (det.piece() == move.commencedBy()) {
 						for (Ticket ticket : move.tickets()) {
-							det = det.use(ticket);
-							mrX.give(ticket);
-						}
-						
-						FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
-							m -> {
-								return m.destination;
-							}, 
-							m -> {
-								return m.destination2;
+							if (det.has(ticket)) {
+								det = det.use(ticket);
+								det = det.at(move.accept(v));
+								mrX.give(ticket);
+								break;
 							}
-							);
-							
-							det = det.at(move.accept(v));
 						}
 					}
+					new_detectives.add(det);
 				}
+			}
 			new_remaining.remove(move.commencedBy());
-				
-			return new MyGameState(setup, ImmutableSet.copyOf(new_remaining), ImmutableList.copyOf(new_log), mrX, detectives); 
+
+			return new MyGameState(setup, ImmutableSet.copyOf(new_remaining), ImmutableList.copyOf(new_log), mrX, new_detectives);
 		}
 
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {
@@ -204,18 +209,21 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public ImmutableSet<Move> getAvailableMoves() {
 			HashSet<Move> allMoves = new HashSet<>();
 
-			///
-			///  toggle the comments below to pass all MrX when commmented or all bar 1 detectives when uncommented
-			/// 
-			
-			// if (remaining.contains(mrX.piece())) {
+			// needs to only return moves for the current player
+			// works for mrX but not detectives, all detective tests return no moves
+
+			if (remaining.stream().findFirst().equals(Optional.of(mrX.piece()))) {
 				allMoves.addAll(makeSingleMoves(setup, detectives, mrX));
 				allMoves.addAll(makeDoubleMoves(setup, detectives, mrX));
-			// }
-
-			// for (Player player : detectives) {
-			// 	allMoves.addAll(makeSingleMoves(setup, detectives, player));
-			// }
+			}
+			else {
+				for (Player player : detectives) {
+					if (remaining.stream().findFirst().equals(Optional.of(player.piece()))) // maybe wrong?
+					{
+						allMoves.addAll(makeSingleMoves(setup, detectives, player));
+					}
+				}
+			}
 
 			return ImmutableSet.copyOf(allMoves);
 		}
