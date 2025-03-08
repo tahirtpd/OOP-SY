@@ -199,7 +199,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			
 			if (win == 1) {
-				// populate winner with detectives
+				for (Player det : detectives) {
+					winners.add(det.piece());
+				}
 			} else if (win == 2) {
 				winners.add(mrX.piece());
 			}
