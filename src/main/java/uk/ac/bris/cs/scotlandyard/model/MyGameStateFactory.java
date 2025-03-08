@@ -175,7 +175,36 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		}
 		
 		@Override public ImmutableSet<Piece> getWinner() { 
-			return winner;
+			ImmutableSet.Builder<Piece> winners = ImmutableSet.builder();
+
+			int win = 0;
+			boolean canMove = false;
+			for (Player det : detectives) {
+				if (det.location() == mrX.location()) {
+					win = 1;
+				}
+
+				if (det.tickets().size() >= 1) {
+					canMove = true;
+				}
+			}
+
+			if (!canMove) {
+				win = 2;
+			}
+
+			// check if there are no unoccupied stations for mrX to travel to
+			// mrx fills the travel log and detectives fail to catch him with final move (if log size == x && remaining has no detectives)
+		
+
+			
+			if (win == 1) {
+				// populate winner with detectives
+			} else if (win == 2) {
+				winners.add(mrX.piece());
+			}
+
+			return winners.build();
 		}
 
 		@Override public ImmutableSet<Move> getAvailableMoves() {

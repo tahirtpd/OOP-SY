@@ -223,7 +223,6 @@ public class GameStatePlayerTest extends ParameterisedModelTestBase {
 	}
 
 	@Test public void testMrXTravelLogCorrectForDoubleMove() {
-		// TODO x2 reveal here
 		var mrX = new Player(MRX, defaultMrXTickets(), 104);
 		var blue = new Player(BLUE, defaultDetectiveTickets(), 174);
 		GameState state = gameStateFactory.build(standard24MoveSetup(), mrX, blue);
