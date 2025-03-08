@@ -22,11 +22,6 @@ import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket;
 import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Transport;
 
-
-/**
- * cw-model
- * Stage 1: Complete this class
- */
 public final class MyGameStateFactory implements Factory<GameState> {
 
 	@Nonnull @Override public GameState build(
@@ -58,7 +53,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			if (mrX == null) throw new NullPointerException("MrX cannot be null");
 			if (detectives.contains(null)) throw new NullPointerException("Detectives cannot contain null");
 
-			// temporary lists used by checks below
 			List<Piece> pieces = new ArrayList<>(Collections.emptyList());
 			List<Integer> locations = new ArrayList<>(Collections.emptyList());
 
@@ -88,7 +82,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				}
 			}
 
-			// assign values
 			this.setup = setup;
 			this.remaining = remaining;
 			this.log = log;
@@ -114,55 +107,41 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public GameState advance(Move move) { 
 			if (!getAvailableMoves().contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
 			
-			List<LogEntry> new_log = new ArrayList<>(log);
-			Set<Piece> new_remaining = new HashSet<>(remaining);
+			List<LogEntry> newLog = new ArrayList<>(log);
+			List<Player> newDetectives = new ArrayList<>(detectives);
+			FunctionalVisitor<Integer> v = new FunctionalVisitor<>(m -> m.destination, m -> m.destination2);
+			int destination = move.accept(v);
+			Player newMrX = null;
 
 			if (move.commencedBy().isMrX()) {
-				FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
-					m -> {
-						return m.destination;
-					}, 
-					m -> {
-						return m.destination2;
-					}
-				);
-				int destination = move.accept(v);
-				mrX = mrX.at(destination);
+				newMrX = mrX.at(destination).use(move.tickets());
 
 				for (Ticket ticket : move.tickets()) {
 					if (setup.moves.get(log.size())) {
-						new_log.add(LogEntry.reveal(ticket, destination));
+						newLog.add(LogEntry.reveal(ticket, destination));
 					} else {
-						new_log.add(LogEntry.hidden(ticket));
+						newLog.add(LogEntry.hidden(ticket));
 					}
-
 				}
-				mrX = mrX.use(move.tickets());
-				// swap to det turn?
 			} else {
 				for (Player det : detectives) {
 					if (det.piece() == move.commencedBy()) {
-						for (Ticket ticket : move.tickets()) {
-							det = det.use(ticket);
-							mrX.give(ticket);
-						}
-						
-						FunctionalVisitor<Integer> v = new FunctionalVisitor<>(
-							m -> {
-								return m.destination;
-							}, 
-							m -> {
-								return m.destination2;
-							}
-							);
-							
-							det = det.at(move.accept(v));
-						}
+						Player new_det = det.at(destination).use(move.tickets());
+						newDetectives.set(detectives.indexOf(det), new_det);					
+						newMrX = mrX.give(move.tickets());
 					}
 				}
-			new_remaining.remove(move.commencedBy());
-				
-			return new MyGameState(setup, ImmutableSet.copyOf(new_remaining), ImmutableList.copyOf(new_log), mrX, detectives); 
+			}
+			Set<Piece> newRemaining = new HashSet<>(remaining);
+			newRemaining.remove(move.commencedBy());
+			if (newRemaining.size() == 0) {
+				newRemaining = getPlayers();
+			}
+			System.err.println("newRemaining: "+newRemaining);
+
+
+
+			return new MyGameState(setup, ImmutableSet.copyOf(newRemaining), ImmutableList.copyOf(newLog), newMrX, ImmutableList.copyOf(newDetectives)); 
 		}
 
 		@Override public Optional<Integer> getDetectiveLocation(Detective detective) {
@@ -204,18 +183,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Override public ImmutableSet<Move> getAvailableMoves() {
 			HashSet<Move> allMoves = new HashSet<>();
 
-			///
-			///  toggle the comments below to pass all MrX when commmented or all bar 1 detectives when uncommented
-			/// 
-			
-			// if (remaining.contains(mrX.piece())) {
+			if (remaining.contains(mrX.piece()) && remaining.size() == 1) {
 				allMoves.addAll(makeSingleMoves(setup, detectives, mrX));
 				allMoves.addAll(makeDoubleMoves(setup, detectives, mrX));
-			// }
+			}
 
-			// for (Player player : detectives) {
-			// 	allMoves.addAll(makeSingleMoves(setup, detectives, player));
-			// }
+			for (Player player : detectives) {
+				if (remaining.contains(player.piece())) {
+					allMoves.addAll(makeSingleMoves(setup, detectives, player));
+				}
+			}
 
 			return ImmutableSet.copyOf(allMoves);
 		}
@@ -305,5 +282,4 @@ public final class MyGameStateFactory implements Factory<GameState> {
             return doubleMoves;
         }
 	}
-
 }
