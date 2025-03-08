@@ -117,7 +117,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 				for (Ticket ticket : move.tickets()) {
 					if (ticket != Ticket.DOUBLE) {
-						if (setup.moves.get(log.size())) {
+						if (setup.moves.get(newLog.size())) {
 							newLog.add(LogEntry.reveal(ticket, destination));
 						} else {
 							newLog.add(LogEntry.hidden(ticket));
