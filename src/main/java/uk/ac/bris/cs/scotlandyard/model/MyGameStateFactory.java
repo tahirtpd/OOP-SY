@@ -112,15 +112,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			FunctionalVisitor<Integer> v = new FunctionalVisitor<>(m -> m.destination, m -> m.destination2);
 			int destination = move.accept(v);
 			Player newMrX = null;
-
 			if (move.commencedBy().isMrX()) {
 				newMrX = mrX.at(destination).use(move.tickets());
 
 				for (Ticket ticket : move.tickets()) {
-					if (setup.moves.get(log.size())) {
-						newLog.add(LogEntry.reveal(ticket, destination));
-					} else {
-						newLog.add(LogEntry.hidden(ticket));
+					if (ticket != Ticket.DOUBLE) {
+						if (setup.moves.get(log.size())) {
+							newLog.add(LogEntry.reveal(ticket, destination));
+						} else {
+							newLog.add(LogEntry.hidden(ticket));
+						}
 					}
 				}
 			} else {
@@ -137,9 +138,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			if (newRemaining.size() == 0) {
 				newRemaining = getPlayers();
 			}
-			System.err.println("newRemaining: "+newRemaining);
-
-
 
 			return new MyGameState(setup, ImmutableSet.copyOf(newRemaining), ImmutableList.copyOf(newLog), newMrX, ImmutableList.copyOf(newDetectives)); 
 		}
