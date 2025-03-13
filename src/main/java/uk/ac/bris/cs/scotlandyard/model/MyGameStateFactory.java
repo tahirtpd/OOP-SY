@@ -180,54 +180,87 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			HashSet<Piece> winners = new HashSet<>();
 
 			int win = 0;
-			boolean canMove = false;
-			boolean canWin = false;
 			ImmutableSet<Move> availableMoves = getAvailableMoves();
-
-			FunctionalVisitor<Integer> v = new FunctionalVisitor<>(m -> m.destination, m -> m.destination2);
-
-			// mrx caught
+			
+			// A detective finish a move on the same station as Mr X.
 			for (Player det : detectives) {
 				if (det.location() == mrX.location()) {
 					win = 1;
 					break;
 				}
 			}
-
-			// track whether detectives can move
-			if (win == 0) {
-				for( Move move : availableMoves ) {
-					if (move.commencedBy().isDetective()) {
+			
+			// The detectives can no longer move any of their playing pieces
+			boolean canMove = false;
+			for (Move move : availableMoves ) {
+				if (move.commencedBy().isDetective()) {
+					if (remaining != getPlayers()) {
 						canMove = true;
-
-						// can capture in 1 move
-						if (remaining.contains(move.commencedBy()) && move.accept(v).equals(mrX.location())) {
-							canWin = true;
-							break;
-						}
 					}
 				}
 			}
+			// if !canMove AND no one has gone then MRx win
 
-			// not last round
-			if (win == 0 && (log.size() < setup.moves.size())) {
-				// mrX cannot make a move
-				if (remaining.contains(mrX.piece()) && availableMoves.stream().noneMatch(move -> move.commencedBy().equals(mrX.piece()))) {
-					win = 1;
-				}
+			// if no ticket then mr x win
 
-				// detectives run out of moves
-				if(remaining == getPlayers() && !canMove) {
-					win = 2;
-				}
+			/*
+			 * If canMove is true then no need to check tickets
+			 * If canMove is false then need to check tickets FOR REMAINING PLAYERS 
+			 * If canMove is false then need to check tickets
+			 * ^ leads to bug: A player CANT move due to being blocked rather than not having a ticket
+			*/
+
+			/*
+			 * at least one player must have gone or can go
+			*/
+			// boolean a = false;
+			// for (Player det : detectives) {
+			// 	if (remaining.contains(det.piece())) {
+			// 		if (!det.tickets().isEmpty()) {
+			// 			// BLOCKED
+			// 		}
+			// 	}
+			// }
+		
+			// There are no unoccupied stations for Mr X to travel to.
+			if (
+				log.size() < setup.moves.size() && 
+				remaining.contains(mrX.piece()) && 
+				availableMoves.isEmpty()
+			) {
+				win = 1;
+			} 
+
+			// Mr X manages to fill the log and the detectives subsequently fail to catch him with their final moves.
+			if (!canMove && (log.size() == setup.moves.size())) {
+				win = 2;
 			}
-			else if (win == 0 && (log.size() == setup.moves.size()) && (remaining.size() == 1)) {
-				// detectives cannot reach mrX in the last round
-				if (!canWin) {
-					win = 2;
+
+
+			boolean hasTicket = false;
+			System.out.println("aa");
+			for (Player det : detectives) {
+				System.out.println("awd aw daw w   wd w dw wd      wd");
+				// whjat if dert has tick no use
+				for (Integer i : det.tickets().values()) {
+					if (i > 0) {
+						System.out.println("awd wad aw dwa ");
+						hasTicket = true;
+
+					}
 				}
+
 			}
 
+			if (!hasTicket) {
+				System.out.println("AWDWADAW");
+				win = 2;
+			}
+			// mrx win when no det has moves
+
+
+			
+			// when det run out mrx is not added included
 			if (win == 1) {
 				for (Player det : detectives) {
 					winners.add(det.piece());
@@ -243,18 +276,19 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		@Nonnull @Override public ImmutableSet<Move> getAvailableMoves() {
 			HashSet<Move> allMoves = new HashSet<>();
-
+			System.out.println("remaing: "+remaining);
 			if(winner.isEmpty()) {
-				if (remaining.contains(mrX.piece()) && remaining.size() == 1) {
-					allMoves.addAll(makeSingleMoves(setup, detectives, mrX));
-					allMoves.addAll(makeDoubleMoves(setup, detectives, mrX));
-				}
-
 				for (Player player : detectives) {
 					if (remaining.contains(player.piece())) {
 						allMoves.addAll(makeSingleMoves(setup, detectives, player));
 					}
 				}
+
+				if ((remaining.contains(mrX.piece()) && remaining.size() == 1) || allMoves.isEmpty()) {
+					allMoves.addAll(makeSingleMoves(setup, detectives, mrX));
+					allMoves.addAll(makeDoubleMoves(setup, detectives, mrX));
+				}
+
 			}
 			moves = ImmutableSet.copyOf(allMoves);
 			return ImmutableSet.copyOf(allMoves);
