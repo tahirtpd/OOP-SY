@@ -14,29 +14,32 @@ import uk.ac.bris.cs.scotlandyard.model.Board.GameState;
  */
 public final class MyModelFactory implements Factory<Model> {
 
+	// Builds a new game Model from given setup, Mr X, and detectives
 	@Nonnull @Override public Model build(GameSetup setup,
 	                                      Player mrX,
 	                                      ImmutableList<Player> detectives) {
 		return new MyModel(setup, mrX, detectives);
 	}
 
+	// An implementation of Model which manages the observers and current GameState
 	private static class MyModel implements Model {
 		private ImmutableSet<Observer> observerList;
 		private GameState gameState;
 
+		// Constructs a new game Model
 		MyModel(GameSetup setup, Player mrX, ImmutableList<Player> detectives) {
+			// Initialisation of values
 			this.gameState = new MyGameStateFactory().build(setup, mrX, detectives);
 			this.observerList = ImmutableSet.of();
 		}
 
-		@Nonnull
-		@Override
-		public Board getCurrentBoard() {
+		// Return the current board (GameState)
+		@Nonnull @Override public Board getCurrentBoard() {
 			return gameState;
 		}
 
-		@Override
-		public void registerObserver(@Nonnull Observer observer) {
+		// Register a given observer to the model to receive updates
+		@Override public void registerObserver(@Nonnull Observer observer) {
 			if (observer == null) {
 				throw new NullPointerException("Observe cannot be null");
 			}
@@ -48,8 +51,8 @@ public final class MyModelFactory implements Factory<Model> {
 					.add(observer).build();
 		}
 
-		@Override
-		public void unregisterObserver(@Nonnull Observer observer) {
+		// Unregister a given observer from the model to stop receiving updates
+		@Override public void unregisterObserver(@Nonnull Observer observer) {
 			if (observer == null) {
 				throw new NullPointerException("Observer cannot be null");
 			}
@@ -70,14 +73,13 @@ public final class MyModelFactory implements Factory<Model> {
 			observerList = builder.build();
 		}
 
-		@Nonnull
-		@Override
-		public ImmutableSet<Observer> getObservers() {
+		// Return all registered observers
+		@Nonnull @Override public ImmutableSet<Observer> getObservers() {
 			return observerList;
 		}
 
-		@Override
-		public void chooseMove(@Nonnull Move move) {
+		// Processes a move and notifies observers of the event
+		@Override public void chooseMove(@Nonnull Move move) {
 			gameState = gameState.advance(move);
 			if (gameState.getWinner().isEmpty()) {
 				for (Observer o : observerList) {
