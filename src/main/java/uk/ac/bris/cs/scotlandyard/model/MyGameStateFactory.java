@@ -170,7 +170,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		// Returns the tickets of a given player
 		@NonNull @Override public Optional<TicketBoard> getPlayerTickets(Piece piece) {
-			// from ImmutableBoard.java : 79
+			// referenced from ImmutableBoard.java : 79 on how to create a ticket board
 			if (piece.isDetective()) {
 				for (Player det : detectives) {
 					if (det.piece() == piece) {
@@ -210,6 +210,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				}
 			}
 			
+			// There are no unoccupied stations for Mr X to travel to
+			// Check if Mr X is unable to move before the last round
+			if (
+				log.size() < setup.moves.size() && 
+				remaining.contains(mrX.piece()) && 
+				availableMoves.isEmpty()
+			) {
+				win = 1;
+			} 
+
 			// The detectives can no longer move any of their playing pieces : 1/2
 			// Check if detectives are able to make at least one move
 			boolean canMove = false;
@@ -221,17 +231,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					}
 				}
 			}
-			
-			// There are no unoccupied stations for Mr X to travel to
-			// Check if Mr X is unable to move before the last round
-			if (
-				log.size() < setup.moves.size() && 
-				remaining.contains(mrX.piece()) && 
-				availableMoves.isEmpty()
-			) {
-				win = 1;
-			} 
-			
+
 			// Mr X manages to fill the log and the detectives subsequently fail to catch him with their final moves
 			// Check if detectives cannot move, and it is the last round
 			if (!canMove && (log.size() == setup.moves.size())) {
@@ -242,8 +242,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			// Check if detectives have all ran out of tickets
 			boolean hasTicket = false;
 			for (Player det : detectives) {
-				for (Integer i : det.tickets().values()) {
-					if (i > 0) {
+				for (Integer ticketCount : det.tickets().values()) {
+					if (ticketCount > 0) {
 						hasTicket = true;
 						break;
 					}
