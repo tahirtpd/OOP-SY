@@ -30,7 +30,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 	private static final class MyGameState implements GameState {
 
-		private final GameSetup setup;
+		private final GameSetup setup; // Contains the graph and which moves reveal Mr X
 		private final ImmutableSet<Piece> remaining; // Players who have not yet moved in the current round
 		private final ImmutableList<LogEntry> log; // Mr X's travel log
 		private final Player mrX;
@@ -111,7 +111,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			List<Player> newDetectives = new ArrayList<>(detectives); // Updated list of detectives with their altered attributes
 			Player newMrX = null; // Updated version of Mr X
 
-			// Visitor used to access the destination of a move
+			// Visitor Pattern used to access the destination of a move
 			FunctionalVisitor<Integer> v = new FunctionalVisitor<>(m -> m.destination, m -> m.destination2);
 			int destination = move.accept(v);
 
@@ -133,8 +133,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				for (Player det : detectives) {
 					if (det.piece() == move.commencedBy()) {
 						// Update detective's location and remove used tickets
-						Player new_det = det.at(destination).use(move.tickets());
-						newDetectives.set(detectives.indexOf(det), new_det);
+						Player newDet = det.at(destination).use(move.tickets());
+						newDetectives.set(detectives.indexOf(det), newDet);
 
 						// Give used ticket to Mr X
 						newMrX = mrX.give(move.tickets());
@@ -172,15 +172,17 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@NonNull @Override public Optional<TicketBoard> getPlayerTickets(Piece piece) {
 			// from ImmutableBoard.java : 79
 			if (piece.isDetective()) {
-				return detectives.stream()
-						.filter(detective -> detective.piece().equals(piece))
-						.map(Player::tickets)
-						.findFirst()
-						.map(tickets -> ticket -> Objects.requireNonNull(tickets.getOrDefault(ticket, 0)));
-			} else if (piece.equals(mrX.piece())) {
-				return Optional.of(mrX.tickets())
-						.map(tickets -> ticket -> Objects.requireNonNull(tickets.getOrDefault(ticket, 0)));
+				for (Player det : detectives) {
+					if (det.piece() == piece) {
+						return Optional.ofNullable(det.tickets())
+							.map(tickets -> ticket -> tickets.getOrDefault(ticket, 0));
+					}
+				}
+			} else if (piece.isMrX()) {
+				return Optional.ofNullable(mrX.tickets())
+					.map(tickets -> ticket -> tickets.getOrDefault(ticket, 0));
 			}
+
 			return Optional.empty();
 		}
 
@@ -191,15 +193,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 		// Returns all winners of the game
 		@Nonnull @Override public ImmutableSet<Piece> getWinner() {
-			HashSet<Piece> winners = new HashSet<>();
-
+			ImmutableSet<Move> availableMoves = getAvailableMoves(); // Available moves stored to prevent multiple calls
+			
 			// win is used to signify the winning state:
 			// 0 = No winner (returns empty set)
 			// 1 = Detectives win
 			// 2 = Mr X wins
-
+			
 			int win = 0;
-			ImmutableSet<Move> availableMoves = getAvailableMoves(); // Available moves stored to prevent multiple calls
 			
 			// A detective finishes a move on the same station as Mr X
 			for (Player det : detectives) {
@@ -220,14 +221,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					}
 				}
 			}
-
-			/*
-			 * If canMove is true then no need to check tickets
-			 * If canMove is false then need to check tickets FOR REMAINING PLAYERS 
-			 * If canMove is false then need to check tickets
-			 * ^ leads to bug: A player CANT move due to being blocked rather than not having a ticket
-			*/
-		
+			
 			// There are no unoccupied stations for Mr X to travel to
 			// Check if Mr X is unable to move before the last round
 			if (
@@ -237,30 +231,31 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			) {
 				win = 1;
 			} 
-
+			
 			// Mr X manages to fill the log and the detectives subsequently fail to catch him with their final moves
 			// Check if detectives cannot move, and it is the last round
 			if (!canMove && (log.size() == setup.moves.size())) {
 				win = 2;
 			}
-
+			
 			// The detectives can no longer move any of their playing pieces : 2/2
 			// Check if detectives have all ran out of tickets
 			boolean hasTicket = false;
 			for (Player det : detectives) {
 				for (Integer i : det.tickets().values()) {
-                    if (i > 0) {
-                        hasTicket = true;
-                        break;
-                    }
+					if (i > 0) {
+						hasTicket = true;
+						break;
+					}
 				}
 			}
-
+			
 			// Mr X wins if detectives have no tickets
 			if (!hasTicket) {
 				win = 2;
 			}
 
+			HashSet<Piece> winners = new HashSet<>();
 			// Add detectives to winners if Mr X loses, or add Mr X to winners if detectives lose
 			if (win == 1) {
 				for (Player det : detectives) {
@@ -272,8 +267,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 
 			// Update winners for access in getAvailableMoves()
 			winner = ImmutableSet.copyOf(winners);
-
-			return ImmutableSet.copyOf(winners);
+			return winner;
 		}
 
 		// Returns all moves players can make for a given GameState
